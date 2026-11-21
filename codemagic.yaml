@@ -17,9 +17,35 @@ workflows:
           export PATH=$THEOS/bin:$PATH
           make clean
           make
-      - name: Zip Dylib
+      - name: Download, Inject, and Package
         script: |
-          find .theos/obj -name "*.dylib" -exec cp {} ./DAMBO.dylib \;
-          zip -r DAMBO_dylib.zip DAMBO.dylib
+          export THEOS=/tmp/theos
+          export PATH=$THEOS/bin:$PATH
+          
+          # 1. Download the IPA from your link
+          curl -L -o base.ipa "https://files.catbox.moe/ue56uv.ipa"
+          
+          # 2. Find the compiled dylib
+          DYLib=$(find .theos/obj -name "DAMBO.dylib" | head -1)
+          
+          # 3. Unzip the IPA
+          mkdir -p extracted_ipa
+          unzip -o base.ipa -d extracted_ipa
+          
+          # 4. Find the executable
+          APP_PATH=$(find extracted_ipa/Payload -name "*.app" | head -1)
+          EXEC_NAME=$(defaults read "$APP_PATH/Info" CFBundleExecutable)
+          EXEC_PATH="$APP_PATH/$EXEC_NAME"
+          
+          # 5. Copy dylib and Inject using Theos optool
+          cp "$DYLib" "$APP_PATH/DAMBO.dylib"
+          $THEOS/bin/optool install -c load -p "@executable_path/DAMBO.dylib" -t "$EXEC_PATH"
+          
+          # 6. Re-sign the binary
+          ldid -S "$EXEC_PATH"
+          
+          # 7. Zip it back up
+          cd extracted_ipa
+          zip -r ../DAMBO_Final.ipa Payload
     artifacts:
-      - DAMBO_dylib.zip
+      - DAMBO_Final.ipa
