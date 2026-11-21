@@ -9,6 +9,22 @@ BOOL guidelineEnabled = YES;
 BOOL skinchangerEnabled = NO;
 
 // ─────────────────────────────────────────────────────────────────────
+// Modern Key Window Getter (Fixes the deprecation error)
+// ─────────────────────────────────────────────────────────────────────
+UIWindow* getKeyWindow(void) {
+    if (@available(iOS 13.0, *)) {
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]]) {
+                for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+                    if (window.isKeyWindow) return window;
+                }
+            }
+        }
+    }
+    return [[UIApplication sharedApplication].windows firstObject];
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // UI: Custom Toggle Switch
 // ─────────────────────────────────────────────────────────────────────
 @interface DamboToggle : UIView
@@ -60,19 +76,16 @@ BOOL skinchangerEnabled = NO;
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     
-    // Glass background
     UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
     blur.frame = self.bounds;
     blur.layer.cornerRadius = 16;
     blur.clipsToBounds = YES;
     [self addSubview:blur];
     
-    // Border
     self.layer.borderColor = [UIColor colorWithRed:0.8 green:0.2 blue:1.0 alpha:0.6].CGColor;
     self.layer.borderWidth = 1.2;
     self.layer.cornerRadius = 16;
     
-    // Header
     UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, frame.size.width, 44)];
     header.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.4];
     [self addSubview:header];
@@ -83,7 +96,6 @@ BOOL skinchangerEnabled = NO;
     title.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBlack];
     [header addSubview:title];
     
-    // Close Button
     UIButton *close = [UIButton buttonWithType:UIButtonTypeSystem];
     close.frame = CGRectMake(frame.size.width - 40, 7, 30, 30);
     [close setTitle:@"✕" forState:UIControlStateNormal];
@@ -91,11 +103,9 @@ BOOL skinchangerEnabled = NO;
     [close addTarget:self action:@selector(removeFromSuperview) forControlEvents:UIControlEventTouchUpInside];
     [header addSubview:close];
     
-    // Drag Gesture
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
     [header addGestureRecognizer:pan];
     
-    // Toggles
     CGFloat y = 60;
     [self addRow:@"Aim Assist" y:y tag:1 on:aimEnabled];
     y += 45;
@@ -104,7 +114,6 @@ BOOL skinchangerEnabled = NO;
     [self addRow:@"Skinchanger" y:y tag:3 on:skinchangerEnabled];
     y += 55;
     
-    // Bottom Button
     UIButton *apply = [UIButton buttonWithType:UIButtonTypeSystem];
     apply.frame = CGRectMake(16, y, frame.size.width - 32, 36);
     apply.backgroundColor = [UIColor colorWithRed:0.5 green:0.1 blue:0.8 alpha:0.8];
@@ -148,14 +157,13 @@ static void hook_UnityInit(int argc, char** argv) {
     orig_UnityInit(argc, argv);
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        UIWindow *window = [UIApplication sharedApplication].keyWindow;
+        // Use the new getter here
+        UIWindow *window = getKeyWindow();
         if (!window) return;
         
-        // 1. Add the floating menu
         DamboMenu *menu = [[DamboMenu alloc] initWithFrame:CGRectMake(20, 80, 240, 280)];
         [window addSubview:menu];
         
-        // 2. Add the aim line drawing layer
         CAShapeLayer *aimLayer = [CAShapeLayer layer];
         aimLayer.frame = window.bounds;
         aimLayer.strokeColor = [UIColor greenColor].CGColor;
@@ -164,18 +172,15 @@ static void hook_UnityInit(int argc, char** argv) {
         aimLayer.lineDashPattern = @[@6, @4];
         [window.layer addSublayer:aimLayer];
         
-        // 3. Render loop (Simulates live drawing)
         CADisplayLink *link = [CADisplayLink displayLinkWithTarget:menu selector:@selector(setNeedsDisplay)];
         [link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
         
-        // Setup basic drawing logic
         [NSTimer scheduledTimerWithTimeInterval:0.016 repeats:YES block:^(NSTimer * _Nonnull timer) {
             if (!aimEnabled) {
                 aimLayer.path = nil;
                 return;
             }
             UIBezierPath *path = [UIBezierPath bezierPath];
-            // Example fixed drawing (until hooked to memory offsets)
             [path moveToPoint:CGPointMake(window.bounds.size.width/2, window.bounds.size.height - 100)];
             [path addLineToPoint:CGPointMake(window.bounds.size.width/2 + 50, window.bounds.size.height - 300)];
             aimLayer.path = path.CGPath;
