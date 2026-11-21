@@ -2,15 +2,11 @@
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 #include <dlfcn.h>
-#import <substrate.h>
 
 BOOL aimEnabled = YES;
 BOOL guidelineEnabled = YES;
 BOOL skinchangerEnabled = NO;
 
-// ─────────────────────────────────────────────────────────────────────
-// Modern Key Window Getter (Fixes the deprecation error on line 24)
-// ─────────────────────────────────────────────────────────────────────
 UIWindow* getKeyWindow(void) {
     if (@available(iOS 13.0, *)) {
         for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
@@ -21,16 +17,12 @@ UIWindow* getKeyWindow(void) {
             }
         }
     }
-    // Shut up the compiler about the fallback
     #pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     return [[UIApplication sharedApplication].windows firstObject];
     #pragma clang diagnostic pop
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// UI: Custom Toggle Switch
-// ─────────────────────────────────────────────────────────────────────
 @interface DamboToggle : UIView
 @property (nonatomic, strong) UIView *pill;
 @property (nonatomic, strong) UIView *thumb;
@@ -70,9 +62,6 @@ UIWindow* getKeyWindow(void) {
 }
 @end
 
-// ─────────────────────────────────────────────────────────────────────
-// UI: Floating Mod Menu
-// ─────────────────────────────────────────────────────────────────────
 @interface DamboMenu : UIView
 @end
 
@@ -153,14 +142,9 @@ UIWindow* getKeyWindow(void) {
 }
 @end
 
-// ─────────────────────────────────────────────────────────────────────
-// Hooking & Overlay
-// ─────────────────────────────────────────────────────────────────────
-static void (*orig_UnityInit)(int, char**);
-static void hook_UnityInit(int argc, char** argv) {
-    orig_UnityInit(argc, argv);
-    
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+// Pure Objective-C injection without Substrate
+__attribute__((constructor)) static void init() {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         UIWindow *window = getKeyWindow();
         if (!window) return;
         
@@ -175,9 +159,6 @@ static void hook_UnityInit(int argc, char** argv) {
         aimLayer.lineDashPattern = @[@6, @4];
         [window.layer addSublayer:aimLayer];
         
-        CADisplayLink *link = [CADisplayLink displayLinkWithTarget:menu selector:@selector(setNeedsDisplay)];
-        [link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
-        
         [NSTimer scheduledTimerWithTimeInterval:0.016 repeats:YES block:^(NSTimer * _Nonnull timer) {
             if (!aimEnabled) {
                 aimLayer.path = nil;
@@ -189,14 +170,4 @@ static void hook_UnityInit(int argc, char** argv) {
             aimLayer.path = path.CGPath;
         }];
     });
-}
-
-__attribute__((constructor)) static void init() {
-    void *handle = dlopen("@rpath/UnityFramework.framework/UnityFramework", RTLD_LAZY);
-    if (handle) {
-        void *sym = dlsym(handle, "UnityInitApplicationGraphics");
-        if (sym) {
-            MSHookFunction(sym, (void *)hook_UnityInit, (void **)&orig_UnityInit);
-        }
-    }
 }
