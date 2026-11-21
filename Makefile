@@ -6,6 +6,5 @@ TWEAK_NAME = DAMBO
 DAMBO_FILES = DAMBO.mm
 DAMBO_CFLAGS = -fobjc-arc -std=c++17
 DAMBO_FRAMEWORKS = UIKit Foundation QuartzCore
-DAMBO_LIBRARIES = substrate
 
 include $(THEOS_MAKE_PATH)/tweak.mk
