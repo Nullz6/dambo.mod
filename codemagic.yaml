@@ -16,7 +16,7 @@ workflows:
           export THEOS=/tmp/theos
           export PATH=$THEOS/bin:$PATH
           make clean
-          make package FINALPACKAGE=1
+          make
       - name: Zip Dylib
         script: |
           find .theos/obj -name "*.dylib" -exec cp {} ./DAMBO.dylib \;
