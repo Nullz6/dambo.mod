@@ -9,7 +9,7 @@ BOOL guidelineEnabled = YES;
 BOOL skinchangerEnabled = NO;
 
 // ─────────────────────────────────────────────────────────────────────
-// Modern Key Window Getter (Fixes the deprecation error)
+// Modern Key Window Getter (Fixes the deprecation error on line 24)
 // ─────────────────────────────────────────────────────────────────────
 UIWindow* getKeyWindow(void) {
     if (@available(iOS 13.0, *)) {
@@ -21,7 +21,11 @@ UIWindow* getKeyWindow(void) {
             }
         }
     }
+    // Shut up the compiler about the fallback
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     return [[UIApplication sharedApplication].windows firstObject];
+    #pragma clang diagnostic pop
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -157,7 +161,6 @@ static void hook_UnityInit(int argc, char** argv) {
     orig_UnityInit(argc, argv);
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        // Use the new getter here
         UIWindow *window = getKeyWindow();
         if (!window) return;
         
